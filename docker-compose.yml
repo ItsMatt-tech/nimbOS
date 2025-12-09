@@ -1,0 +1,111 @@
+version: "3.9"
+
+services:
+  # -------------------------------------------
+  # NimbOS API (FastAPI backend)
+  # -------------------------------------------
+  api:
+    build: ./api
+    container_name: nimbos_api
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - nimbos
+    environment:
+      NIMBOS_ENV: "development"
+
+  # -------------------------------------------
+  # Dashboard (SvelteKit → Nginx static site)
+  # -------------------------------------------
+  dashboard:
+    build: ./dashboard
+    container_name: nimbos_dashboard
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    networks:
+      - nimbos
+
+  # -------------------------------------------
+  # Syncthing – P2P file sync
+  # -------------------------------------------
+  syncthing:
+    image: syncthing/syncthing:latest
+    container_name: nimbos_syncthing
+    hostname: nimbos-syncthing
+    restart: unless-stopped
+    networks:
+      - nimbos
+    volumes:
+      - /opt/nimbos/syncthing/config:/var/syncthing/config
+      - /opt/nimbos/syncthing/data:/var/syncthing/data
+    ports:
+      - "8384:8384"        # Syncthing GUI (TEMPORARY - for development)
+      - "22000:22000/tcp"
+      - "22000:22000/udp"
+      - "21027:21027/udp"
+    environment:
+      ST_NO_UPNP: "true"   # Prevents unwanted port mapping
+
+  # -------------------------------------------
+  # Immich Stack (Official recommended config)
+  # -------------------------------------------
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:release
+    container_name: immich_server
+    depends_on:
+      - immich-db
+      - immich-redis
+    networks:
+      - nimbos
+    volumes:
+      - /opt/nimbos/immich/upload:/usr/src/app/upload
+    environment:
+      DB_HOSTNAME: immich-db
+      REDIS_HOSTNAME: immich-redis
+    ports:
+      - "2283:3001"  # immich web app & API
+
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:release
+    container_name: immich_ml
+    networks:
+      - nimbos
+    volumes:
+      - /opt/nimbos/immich/ml-cache:/cache
+
+  immich-db:
+    image: postgres:15
+    container_name: immich_db
+    restart: unless-stopped
+    networks:
+      - nimbos
+    environment:
+      POSTGRES_PASSWORD: immich
+      POSTGRES_USER: immich
+      POSTGRES_DB: immich
+    volumes:
+      - /opt/nimbos/immich/db:/var/lib/postgresql/data
+
+  immich-redis:
+    image: redis:alpine
+    container_name: immich_redis
+    restart: unless-stopped
+    networks:
+      - nimbos
+
+# -------------------------------------------
+# Networks
+# -------------------------------------------
+networks:
+  nimbos:
+    driver: bridge
+
+# -------------------------------------------
+# Volumes (optional if you want named volumes)
+# -------------------------------------------
+volumes:
+  immich_upload:
+  immich_ml_cache:
+  immich_db_data:
