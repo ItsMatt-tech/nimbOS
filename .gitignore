@@ -10,6 +10,7 @@
 immich/db/
 immich/upload/
 immich/ml-cache/
+immich/postgres/
 
 # Syncthing internal data
 syncthing/config/
