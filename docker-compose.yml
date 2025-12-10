@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # -------------------------------------------
   # NimbOS API (FastAPI backend)
@@ -52,46 +50,60 @@ services:
   # Immich Stack (Official recommended config)
   # -------------------------------------------
   immich-server:
-    image: ghcr.io/immich-app/immich-server:release
     container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:release
+    volumes:
+      - immich_upload:/data
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      DB_PASSWORD: nimbos123
+      DB_USERNAME: immich
+      DB_DATABASE_NAME: immich_db
+    ports:
+      - '2283:2283'
     depends_on:
-      - immich-db
-      - immich-redis
+      - redis
+      - database
+    restart: always
+    healthcheck:
+      disable: false
     networks:
       - nimbos
-    volumes:
-      - /opt/nimbos/immich/upload:/usr/src/app/upload
-    environment:
-      DB_HOSTNAME: immich-db
-      REDIS_HOSTNAME: immich-redis
-    ports:
-      - "2283:3001"  # immich web app & API
 
   immich-machine-learning:
+    container_name: immich_machine_learning
     image: ghcr.io/immich-app/immich-machine-learning:release
-    container_name: immich_ml
+    volumes:
+      - immich_ml_cache:/cache
+    restart: always
+    healthcheck:
+      disable: false
     networks:
       - nimbos
-    volumes:
-      - /opt/nimbos/immich/ml-cache:/cache
 
-  immich-db:
-    image: postgres:15
-    container_name: immich_db
-    restart: unless-stopped
-    networks:
-      - nimbos
-    environment:
-      POSTGRES_PASSWORD: immich
-      POSTGRES_USER: immich
-      POSTGRES_DB: immich
-    volumes:
-      - /opt/nimbos/immich/db:/var/lib/postgresql/data
-
-  immich-redis:
-    image: redis:alpine
+  redis:
     container_name: immich_redis
-    restart: unless-stopped
+    image: docker.io/valkey/valkey:8@sha256:81db6d39e1bba3b3ff32bd3a1b19a6d69690f94a3954ec131277b9a26b95b3aa
+    healthcheck:
+      test: redis-cli ping || exit 1
+    restart: always
+    networks:
+      - nimbos
+
+  database:
+    container_name: immich_db
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.5.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    environment:
+      POSTGRES_PASSWORD: nimbos123
+      POSTGRES_USER: immich
+      POSTGRES_DB: immich_db
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+      # Uncomment the DB_STORAGE_TYPE: 'HDD' var if your database isn't stored on SSDs
+      # DB_STORAGE_TYPE: 'HDD'
+    volumes:
+      - immich_db_data:/var/lib/postgresql/data
+    shm_size: 128mb
+    restart: always
     networks:
       - nimbos
 

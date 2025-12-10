@@ -1,0 +1,23 @@
+# Docker-related
+*.log
+.env
+**/db
+**/upload
+**/data
+**/ml-cache
+
+# Immich directories
+immich/db/
+immich/upload/
+immich/ml-cache/
+
+# Syncthing internal data
+syncthing/config/
+syncthing/data/
+
+# Python app build artifacts
+__pycache__/
+*.pyc
+
+# Node app artifacts
+node_modules/
