@@ -37,7 +37,7 @@ services:
       - nimbos
     volumes:
       - /opt/nimbos/syncthing/config:/var/syncthing/config
-      - /opt/nimbos/syncthing/data:/var/syncthing/data
+      - /opt/nimbos/storage/sync:/var/syncthing/data
     ports:
       - "8384:8384"        # Syncthing GUI (TEMPORARY - for development)
       - "22000:22000/tcp"
@@ -53,18 +53,21 @@ services:
     container_name: immich_server
     image: ghcr.io/immich-app/immich-server:release
     volumes:
-      - immich_upload:/data
+      - /opt/nimbos/storage/immich/upload:/data
       - /etc/localtime:/etc/localtime:ro
     environment:
       DB_PASSWORD: nimbos123
-      DB_USERNAME: immich
-      DB_DATABASE_NAME: immich_db
+      DB_USERNAME: postgres
+      DB_DATABASE_NAME: immich
+      DB_HOSTNAME: immich_db
+      REDIS_HOSTNAME: immich_redis
     ports:
       - '2283:2283'
     depends_on:
-      - redis
-      - database
-    restart: always
+      - immich_redis
+      - immich_db
+      - immich-machine-learning
+    restart: unless-stopped
     healthcheck:
       disable: false
     networks:
@@ -75,37 +78,62 @@ services:
     image: ghcr.io/immich-app/immich-machine-learning:release
     volumes:
       - immich_ml_cache:/cache
-    restart: always
+    restart: unless-stopped
     healthcheck:
       disable: false
     networks:
       - nimbos
 
-  redis:
+  immich_redis:
     container_name: immich_redis
-    image: docker.io/valkey/valkey:8@sha256:81db6d39e1bba3b3ff32bd3a1b19a6d69690f94a3954ec131277b9a26b95b3aa
+    image: docker.io/valkey/valkey:8
     healthcheck:
       test: redis-cli ping || exit 1
-    restart: always
+    restart: unless-stopped
     networks:
       - nimbos
 
-  database:
+  immich_db:
     container_name: immich_db
     image: ghcr.io/immich-app/postgres:14-vectorchord0.5.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
     environment:
       POSTGRES_PASSWORD: nimbos123
-      POSTGRES_USER: immich
-      POSTGRES_DB: immich_db
+      POSTGRES_USER: postgres
+      POSTGRES_DB: immich
       POSTGRES_INITDB_ARGS: '--data-checksums'
       # Uncomment the DB_STORAGE_TYPE: 'HDD' var if your database isn't stored on SSDs
       # DB_STORAGE_TYPE: 'HDD'
     volumes:
       - immich_db_data:/var/lib/postgresql/data
     shm_size: 128mb
-    restart: always
+    restart: unless-stopped
     networks:
       - nimbos
+
+  # -------------------------------------------
+  # AI Layer - Ollama and RAG worker
+  # -------------------------------------------
+  ollama:
+    container_name: nimbos_ollama
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - /opt/nimbos/ollama:/root/.ollama
+    networks:
+      - nimbos
+
+  rag-worker:
+    build: ./rag-worker
+    container_name: nimbos_rag
+    networks:
+      - nimbos
+    volumes:
+      - /opt/nimbos/storage/sync:/mnt/docs
+      - /opt/nimbos/rag-worker:/app/data
+    environment:
+      OLLAMA_URL: http://ollama:11434
 
 # -------------------------------------------
 # Networks
@@ -118,6 +146,5 @@ networks:
 # Volumes (optional if you want named volumes)
 # -------------------------------------------
 volumes:
-  immich_upload:
   immich_ml_cache:
   immich_db_data:
