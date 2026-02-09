@@ -1,0 +1,48 @@
+services:
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:release
+    network_mode: host
+    depends_on:
+      - immich_redis
+      - immich_db
+      - immich-machine-learning
+    env_file:
+      - /opt/nimbos/config/immich/.env
+    volumes:
+      - /opt/nimbos/storage/media/immich:/data
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    healthcheck:
+      disable: false
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:release
+    network_mode: host
+    volumes:
+      - /opt/nimbos/cache/immich/ml-cache:/cache
+    restart: unless-stopped
+    healthcheck:
+      disable: false
+
+  immich_redis:
+    container_name: immich_redis
+    image: docker.io/valkey/valkey:8
+    network_mode: host
+    restart: unless-stopped
+    healthcheck:
+      test: redis-cli ping || exit 1
+
+  immich_db:
+    container_name: immich_db
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.5.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    network_mode: host
+    env_file:
+      - /opt/nimbos/config/immich/.env
+    environment:
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    volumes:
+      - /opt/nimbos/services/immich/db:/var/lib/postgresql/data
+    shm_size: 128mb
+    restart: unless-stopped

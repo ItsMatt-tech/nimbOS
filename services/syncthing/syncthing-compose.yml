@@ -1,0 +1,14 @@
+services:
+  syncthing:
+    image: syncthing/syncthing:latest
+    container_name: nimbos_syncthing
+    hostname: nimbos-syncthing
+    restart: unless-stopped
+    network_mode: host
+
+    volumes:
+      - /opt/nimbos/config/syncthing:/var/syncthing/config
+      - /opt/nimbos/storage/sync:/var/syncthing/data/
+
+    environment:
+      ST_NO_UPNP: "true"

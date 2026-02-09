@@ -1,0 +1,16 @@
+# Runtime
+runtime/
+logs/
+cache/
+storage/
+ai/
+.snapshots/
+
+# Secrets
+.env
+*.key
+*.pem
+
+# OS
+.DS_Store
+*.swp
