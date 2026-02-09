@@ -6,6 +6,9 @@ storage/
 ai/
 .snapshots/
 
+# DB
+services/immich/db/
+
 # Secrets
 .env
 *.key
